@@ -79,7 +79,7 @@ $notebook = @{
             metadata = @{}
             outputs = @()
             source = @(
-                "!pip install pandas scikit-learn xgboost huggingface_hub joblib`n"
+                "%pip install pandas scikit-learn xgboost huggingface_hub joblib`n"
             )
         },
         @{
