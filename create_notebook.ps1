@@ -90,7 +90,7 @@ $notebook = @{
             source = @(
                 "import os`n",
                 "import pandas as pd`n",
-                "from sklearn.model_selection import train_test_split`n",
+                "from sklearn.model_selection import train_test_split, GridSearchCV`n",
                 "from huggingface_hub import HfApi, login`n",
                 "import joblib`n",
                 "from sklearn.pipeline import Pipeline`n",
@@ -215,12 +215,26 @@ $notebook = @{
                 "        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)`n",
                 "    ])`n",
                 "`n",
+                "# Define base model`n",
+                "base_model = XGBRegressor(random_state=42)`n",
+                "`n",
+                "# Define parameters grid for tuning`n",
+                "param_grid = {`n",
+                "    'model__n_estimators': [50, 100],`n",
+                "    'model__max_depth': [3, 5],`n",
+                "    'model__learning_rate': [0.05, 0.1]`n",
+                "}`n",
+                "`n",
                 "pipeline = Pipeline(steps=[`n",
                 "    ('preprocessor', preprocessor),`n",
-                "    ('model', XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=42))`n",
+                "    ('model', base_model)`n",
                 "])`n",
                 "`n",
-                "pipeline.fit(X_train, y_train)`n"
+                "print('Tuning model with GridSearchCV...')`n",
+                "grid_search = GridSearchCV(pipeline, param_grid, cv=3, scoring='neg_root_mean_squared_error', n_jobs=-1)`n",
+                "grid_search.fit(X_train, y_train)`n",
+                "best_pipeline = grid_search.best_estimator_`n",
+                "print(f'Best parameters: {grid_search.best_params_}')`n"
             )
         },
         @{
@@ -230,7 +244,7 @@ $notebook = @{
             outputs = @()
             source = @(
                 "# Evaluate model performance`n",
-                "y_pred = pipeline.predict(X_test)`n",
+                "y_pred = best_pipeline.predict(X_test)`n",
                 "rmse = mean_squared_error(y_test, y_pred) ** 0.5`n",
                 "r2 = r2_score(y_test, y_pred)`n",
                 "print(f'RMSE: {rmse:.2f}')`n",
@@ -244,7 +258,7 @@ $notebook = @{
             outputs = @()
             source = @(
                 "# Serialize and Register the model`n",
-                "joblib.dump(pipeline, 'xgboost_model.pkl')`n",
+                "joblib.dump(best_pipeline, 'xgboost_model.pkl')`n",
                 "api.upload_file(`n",
                 "    path_or_fileobj='xgboost_model.pkl',`n",
                 "    path_in_repo='xgboost_model.pkl',`n",

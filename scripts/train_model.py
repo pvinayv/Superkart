@@ -5,6 +5,7 @@ import joblib
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.model_selection import GridSearchCV
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from huggingface_hub import HfApi
@@ -53,28 +54,37 @@ preprocessor = ColumnTransformer(
         ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
     ])
 
-model = XGBRegressor(
-    n_estimators=100, 
-    learning_rate=0.1, 
-    max_depth=5,
-    random_state=42
-)
+# Define base model
+base_model = XGBRegressor(random_state=42)
 
+# Define parameter grid for tuning
+param_grid = {
+    'model__n_estimators': [50, 100],
+    'model__max_depth': [3, 5],
+    'model__learning_rate': [0.05, 0.1]
+}
+
+# Define the base pipeline
 pipeline = Pipeline(steps=[('preprocessor', preprocessor),
-                           ('model', model)])
+                           ('model', base_model)])
 
-# 3. Tune and Train
-print("Training XGBoost Model...")
-pipeline.fit(X_train, y_train)
+# 3. Tune and Train using GridSearchCV
+print("Tuning XGBoost Model with GridSearchCV...")
+grid_search = GridSearchCV(pipeline, param_grid, cv=3, scoring='neg_root_mean_squared_error', n_jobs=-1)
+grid_search.fit(X_train, y_train)
+
+# Get the best tuned model
+best_pipeline = grid_search.best_estimator_
+print(f"Best parameters found: {grid_search.best_params_}")
 
 # 4. Evaluate Performance
-y_pred = pipeline.predict(X_test)
+y_pred = best_pipeline.predict(X_test)
 rmse = mean_squared_error(y_test, y_pred) ** 0.5
 r2 = r2_score(y_test, y_pred)
 print(f"Model Evaluation - RMSE: {rmse:.4f}, R2: {r2:.4f}")
 
 # Save best model
-joblib.dump(pipeline, 'xgboost_model.pkl')
+joblib.dump(best_pipeline, 'xgboost_model.pkl')
 print("Model saved to xgboost_model.pkl")
 
 # 5. Register in Hugging Face Model Hub
